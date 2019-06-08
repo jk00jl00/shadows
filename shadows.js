@@ -13,6 +13,13 @@ class Box {
         this.draw = function (ctx) {
             ctx.fillRect(this.x, this.y, this.width, this.height);
         };
+
+        this.collides = function (box){
+            return (this.x < box.x + box.width &&
+            this.x + this.width > box.x &&
+            this.y < box.y + box.height &&
+            this.y + this.height > box.y);
+        }
     }
 }
 
@@ -66,26 +73,22 @@ class Point{
 
 
 player = new Player();
-box = new Box({x: 50,y: 50,width: 50,height: 50});
 keys = [];
+drag = false;
+drawCornerLines = false;
+mousepos = false;
+mouseStart = false; 
+mouseBox = false;
+rClick = false;
 
 boxes = [];
-boxes.push(box);
-box = new Box({x: 350,y: 350,width: 50,height: 20});
-boxes.push(box);
-box = new Box({x: 75,y: 130,width: 20,height: 30});
-boxes.push(box);
-box = new Box({x: 413,y: 140,width: 10,height: 100});
-boxes.push(box);
-box = new Box({x: 250,y: 250,width: 10,height: 10});
-boxes.push(box);
-     
+
 
 document.onkeydown = function (e) {
     keys[e.keyCode] = true;
 
     if(e.keyCode == 32)
-        findShadow(ctx);
+        drawCornerLines = !drawCornerLines;
 
 }
 
@@ -93,8 +96,31 @@ document.onkeyup = function (e){
     keys[e.keyCode] = false;
 }
 
+document.onmousedown = function (e){
+    if(e.button == 0){
+        drag = true;
+        mousepos = new Point(e.clientX, e.clientY);
+        mouseStart = new Point(e.clientX, e.clientY);
+        mouseBox = new Box({x: mousepos.x, y: mousepos.y, width: 1, height: 1})
+    } else if(e.button = 3){
+        rClick = new Box({x: e.clientX, y: e.clientY, width: 5, height: 5});
+        e.preventDefault();
+    }
+}
+
+document.onmouseup = function (e){
+    drag = false;
+}
+
+document.onmousemove = function (e){
+    mousepos.x = e.clientX;
+    mousepos.y = e.clientY;
+}
+
 function findShadow(ctx){
     //The player point
+    start = new Date().getMilliseconds();
+
     p = new Point(player.x + player.width/2, player.y + player.height/2); 
     //Loops through all the boxes.
     boxes.forEach(box => {
@@ -123,9 +149,10 @@ function findShadow(ctx){
             //The point where the transposed line passes y = box.height.
             heightx = Math.round((box.height - m)/k);
 
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(c.x, c.y);
+            if(drawCornerLines)
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(c.x, c.y);
 
             //Checks if the box is to the left of the player.
             //In order to check if the lines should be intercepting the left or right side of the box.
@@ -149,12 +176,13 @@ function findShadow(ctx){
                 }
             }
 
-            
-            if(!visable.includes(c)) ctx.strokeStyle = 'red'; 
+           if(drawCornerLines){
+                if(!visable.includes(c)) ctx.strokeStyle = 'red'; 
 
-            ctx.stroke();
-            
-            ctx.strokeStyle = 'black';
+                ctx.stroke();
+                
+                ctx.strokeStyle = 'black';
+           }
 
         }
 
@@ -311,19 +339,26 @@ function findShadow(ctx){
         ctx.fill();   
 
         });
-    
+    console.log("Time: " + (new Date().getMilliseconds() - start));
 }
 
 function draw(){
 
     ctx.clearRect(0,0,canvas.width, canvas.height);
+    ctx.fillStyle = 'grey';
     boxes.forEach(element => {
         element.draw(ctx);
     });
-    findShadow(ctx);
-    box.draw(ctx);
+
+    if(mouseBox){
+        ctx.fillStyle = 'blue';
+        mouseBox.draw(ctx);
+        ctx.fillStyle = 'black';
+    }
+
+    ctx.fillStyle = 'black';
     player.draw(ctx);
-     
+    findShadow(ctx);  
 }
 
 function update(){
@@ -339,6 +374,46 @@ function update(){
     if(keys[37]){
         player.move(-2,0);
     }
+    if(mousepos && ! drag){
+        boxes.push(mouseBox);
+        mouseBox = false;
+        mousepos = false;
+        mouseStart = false;
+    } else if(drag){
+        newx = 0;
+        newy = 0;
+        newwidth = 1;
+        newheight = 1;
+
+
+        if(mousepos.x > mouseStart.x){
+            newx = mouseStart.x;
+            newwidth = mousepos.x - mouseStart.x;
+        } else{ 
+            newx = mousepos.x;
+            newwidth = mouseStart.x - mousepos.x;
+        }
+        if(mousepos.y > mouseBox.y){
+            newy = mouseStart.y;
+            newheight = mousepos.y - mouseStart.y;
+        } else{
+            newy = mousepos.y;
+            newheight = mouseStart.y - mousepos.y;
+        }
+
+        mouseBox = new Box({x: newx, y: newy, width: newwidth, height: newheight});
+
+        
+    }
+    if(rClick){
+        boxes.forEach(function (box) {
+            if(box.collides(rClick)){
+                boxes.splice(boxes.indexOf(box), 1);
+            }
+        });
+        rClick = false;
+    }
+
 }
 
 
