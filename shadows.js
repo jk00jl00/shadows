@@ -30,12 +30,28 @@ class Player {
         this.width = 10;
         this.height = 20;
         this.hitbox = new Box({ x: this.x, y: this.x, width: this.width, height: this.height });
-        this.move = function (x, y) {
-
+        this.move = function (x, y, boxes) {
+            p = this;
             if(this.x + x < 0) x = 0 - this.x; 
             else if(this.x + this.width + x >= canvas.width) x = canvas.width - (this.x + this.width);
             if(this.y + y < 0) y = 0 - this.y;
             else if(this.y + this.height + y >= canvas.height) y = canvas.height - (this.y + this.height);
+
+            boxes.forEach(function (box) {
+                boxm = new Point(box.x + box.width/2, box.y + box.height/2);
+
+                if(box.collides(new Box({x: p.x + x, y: p.y, width: p.width, height: p.height }))){
+
+                    if(p.x + p.width + x >= box.x && p.x < boxm.x) x = box.x - (p.x + p.width);
+                    else if(p.x + x <= box.x + box.width && p.x > boxm.x) x = box.x + box.width - p.x;
+                }
+                if(box.collides(new Box({x: p.x, y: p.y + y, width: p.width, height: p.height }))){
+
+                    if(p.y + p.height + y >= box.y && p.y < boxm.y) y = box.y - (p.y + p.height);
+                    else if(p.y + y <= box.y + box.height && p.y > boxm.y) y = box.y + box.height - p.y;  
+
+                }
+            });
 
             this.x += x;
             this.y += y;
@@ -141,7 +157,7 @@ function findShadow(ctx){
         for(let i = 0; i < 3; i++){
             c = corners[i];
             //The gradient of the line that passes through the player and corner.
-            k = (c.y - p.y)/(c.x - p.x);
+            k  = (c.y - p.y)/(c.x - p.x);
             //The y-intercept of the line, transposes so that the boxes top left corner is at the point x = 0, y = 0.
             m = (c.y - box.y) - (c.x - box.x) * k;
             //The point x where the transposed line passes y = 0.
@@ -149,10 +165,11 @@ function findShadow(ctx){
             //The point where the transposed line passes y = box.height.
             heightx = Math.round((box.height - m)/k);
 
-            if(drawCornerLines)
+            if(drawCornerLines){
                 ctx.beginPath();
                 ctx.moveTo(p.x, p.y);
                 ctx.lineTo(c.x, c.y);
+            }
 
             //Checks if the box is to the left of the player.
             //In order to check if the lines should be intercepting the left or right side of the box.
@@ -163,7 +180,6 @@ function findShadow(ctx){
                     //If the y value of the line at the x boit of box.width is outside of the range 0 - box.height and the x value when passing y = box.height is between
                     //x = 0 and x = box.width the corner i not visable. 
                     if(!(0 < Math.round(box.width * k + m) && Math.round(box.width * k + m) < box.height) && !(0 < heightx && heightx < box.width)) visable.push(c);
-                    
                 } else{
                     //Same check but against the the top part of the box.
                     if(!(0 < Math.round(box.width * k + m) && Math.round(box.width * k + m) < box.height) && !(0 < xzero && xzero < box.width)) visable.push(c);
@@ -175,17 +191,12 @@ function findShadow(ctx){
                     if(!(0 < m && m < box.height) && !(0 < xzero && xzero < box.width)) visable.push(c);
                 }
             }
-
            if(drawCornerLines){
-                if(!visable.includes(c)) ctx.strokeStyle = 'red'; 
-
-                ctx.stroke();
-                
+                if(!visable.includes(c)) ctx.strokeStyle = 'red';
+                ctx.stroke();    
                 ctx.strokeStyle = 'black';
            }
-
         }
-
         for(i = 0; i < visable.length; i++){
             ipoint = visable[i];
             for(a = 0; a < visable.length; a++){
@@ -198,105 +209,66 @@ function findShadow(ctx){
                 }
             }
         }
-
         visable.sort(function(a, b){return b.dist(p) - a.dist(p)});
-
         ctx.strokeStyle = 'black';
         ctx.beginPath();
 
-        point = visable[0];
+        points = []
 
-        ctx.moveTo(point.x,point.y);
+        for(i = 0; i < 2; i++){
+            point = visable[i];
+            k = (point.y - p.y)/(point.x - p.x);
+            m = point.y - point.x * k;
 
-        k = (point.y - p.y)/(point.x - p.x);
-        m = point.y - point.x * k;
-
-        y = x = 0;
-        if(point.x == p.x){
-            x = p.x;
-            if(!(point.y < p.y)) y = canvas.height;
-        } else if(point.x < p.x){
-            if(point.y < p.y){
-                if(m > 0) y = m; 
-                else x = -m/k;
-            } else{
-                if(m < canvas.height){ 
-                    y = m;
+            y = x = 0;
+            if(point.x == p.x){
+                x = p.x;
+                if(!(point.y < p.y)) y = canvas.height;
+            } else if(point.x < p.x){
+                if(point.y < p.y){
+                    if(m > 0) y = m; 
+                    else x = -m/k;
                 } else{
-                    x = (canvas.height - m)/k;
-                    y = canvas.height;
-                } 
-            }
-        } else{
-            if(point.y < p.y){
-                if(k*canvas.width + m > 0){
-                    y = k*canvas.width + m;
-                    x = canvas.width;
-                } 
-                else{ 
-                    x = -m/k;
+                    if(m < canvas.height){ 
+                        y = m;
+                    } else{
+                        x = (canvas.height - m)/k;
+                        y = canvas.height;
+                    } 
                 }
             } else{
-                if(k*canvas.width + m < canvas.height){ 
-                    y = k*canvas.width + m;
-                    x = canvas.width;
+                if(point.y < p.y){
+                    if(k*canvas.width + m > 0){
+                        y = k*canvas.width + m;
+                        x = canvas.width;
+                    } 
+                    else{ 
+                        x = -m/k;
+                    }
                 } else{
-                    x = (canvas.height - m)/k;
-                    y = canvas.height;
-                } 
+                    if(k*canvas.width + m < canvas.height){ 
+                        y = k*canvas.width + m;
+                        x = canvas.width;
+                    } else{
+                        x = (canvas.height - m)/k;
+                        y = canvas.height;
+                    } 
+                }
             }
+            x = Math.round(x);
+            y = Math.round(y); 
+            points.push(new Point(x, y));
         }
-        x = Math.round(x);
-        y = Math.round(y); 
+
+        x = points[0].x;
+        y = points[0].y;
+        nx = points[1].x;
+        ny = points[1].y;
+
+        ctx.moveTo(visable[0].x, visable[0].y);
         ctx.lineTo(x, y);
 
-        nx = ny = 0;
-        point = visable[1];
-
-        if(!point) return;
-
-        k = (point.y - p.y)/(point.x - p.x);
-        m = point.y - point.x * k;
-
-        if(point.x == p.x){
-            nx = p.x;
-            if(!(point.y < p.y)) ny = canvas.height;
-        } else if(point.x < p.x){
-            if(point.y < p.y){
-                if(m > 0) ny = m; 
-                else nx = -m/k;
-            } else{
-                if(m < canvas.height){ 
-                    ny = m;
-                } else{
-                    nx = (canvas.height - m)/k;
-                    ny = canvas.height;
-                } 
-            }
-        } else{
-            if(point.y < p.y){
-                if(k*canvas.width + m > 0){
-                    ny = k*canvas.width + m;
-                    nx = canvas.width;
-                } 
-                else{ 
-                    nx = -m/k;
-                }
-            } else{
-                if(k*canvas.width + m < canvas.height){ 
-                    ny = k*canvas.width + m;
-                    nx = canvas.width;
-                } else{
-                    nx = (canvas.height - m)/k;
-                    ny = canvas.height;
-                } 
-            }
-        }
-        
-        let cornerx, cornery;
-
         canvasCorners = [];
-
         if(Math.abs(nx - x) === canvas.width){
             if(boxm.y < p.y){
                 canvasCorners.push(new Point(canvas.width, 0))
@@ -314,17 +286,12 @@ function findShadow(ctx){
                 canvasCorners.push(new Point(canvas.width, canvas.height)) 
             }
         } else if(nx !== x && ny !== y){
-
-            
-
             canvasCorners.push(new Point((nx < canvas.width && x < canvas.width) ? 0: canvas.width, (ny < canvas.height && y < canvas.height) ? 0: canvas.height))
         }
-
         if(canvasCorners.length > 1){
             cornerPoint = new Point(x, y);
             canvasCorners.sort(function(a, b){return a.dist(cornerPoint) - b.dist(cornerPoint)});
         }
-
         for(i = 0; i < canvasCorners.length;i++){
            ctx.lineTo(canvasCorners[i].x, canvasCorners[i].y);
         }
@@ -333,11 +300,10 @@ function findShadow(ctx){
         ny = Math.round(ny); 
         ctx.lineTo(nx, ny);
         
-        ctx.lineTo(point.x, point.y);
+        ctx.lineTo(visable[1].x, visable[1].y);
 
         ctx.closePath();
         ctx.fill();   
-
         });
     console.log("Time: " + (new Date().getMilliseconds() - start));
 }
@@ -363,16 +329,16 @@ function draw(){
 
 function update(){
     if(keys[38]){
-        player.move(0,-2);
+        player.move(0,-2, boxes);
     }
     if(keys[39]){
-        player.move(2,0);
+        player.move(2,0, boxes);
     }
     if(keys[40]){
-        player.move(0,2);
+        player.move(0,2, boxes);
     }
     if(keys[37]){
-        player.move(-2,0);
+        player.move(-2,0, boxes);
     }
     if(mousepos && ! drag){
         boxes.push(mouseBox);
@@ -400,10 +366,7 @@ function update(){
             newy = mousepos.y;
             newheight = mouseStart.y - mousepos.y;
         }
-
         mouseBox = new Box({x: newx, y: newy, width: newwidth, height: newheight});
-
-        
     }
     if(rClick){
         boxes.forEach(function (box) {
@@ -413,9 +376,7 @@ function update(){
         });
         rClick = false;
     }
-
 }
-
 
 function loop(){
     update();
