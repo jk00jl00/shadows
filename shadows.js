@@ -134,12 +134,14 @@ document.onmousemove = function (e){
 }
 
 function findShadow(ctx){
+    //The array of arrays containing the coordinates for drawing.
+    returnPoints = [];
     //The player point
-    start = new Date().getMilliseconds();
-
     p = new Point(player.x + player.width/2, player.y + player.height/2); 
     //Loops through all the boxes.
     boxes.forEach(box => {
+        //The array that contains the coordinates for drawing.
+        drawPoints = [];
         //The midpoint of the box.
         boxm = new Point(box.x + box.width/2, box.y + box.height/2);
         //All the corners of the box.
@@ -210,8 +212,6 @@ function findShadow(ctx){
             }
         }
         visable.sort(function(a, b){return b.dist(p) - a.dist(p)});
-        ctx.strokeStyle = 'black';
-        ctx.beginPath();
 
         points = []
 
@@ -260,15 +260,16 @@ function findShadow(ctx){
             points.push(new Point(x, y));
         }
 
-        x = points[0].x;
-        y = points[0].y;
-        nx = points[1].x;
-        ny = points[1].y;
+        x = Math.round(points[0].x);
+        y = Math.round(points[0].y);
+        nx = Math.round(points[1].x);
+        ny = Math.round(points[1].y);
 
-        ctx.moveTo(visable[0].x, visable[0].y);
-        ctx.lineTo(x, y);
+        drawPoints.push(visable[0]);
+        drawPoints.push(new Point(x, y));
 
         canvasCorners = [];
+
         if(Math.abs(nx - x) === canvas.width){
             if(boxm.y < p.y){
                 canvasCorners.push(new Point(canvas.width, 0))
@@ -293,25 +294,35 @@ function findShadow(ctx){
             canvasCorners.sort(function(a, b){return a.dist(cornerPoint) - b.dist(cornerPoint)});
         }
         for(i = 0; i < canvasCorners.length;i++){
-           ctx.lineTo(canvasCorners[i].x, canvasCorners[i].y);
+            drawPoints.push(canvasCorners[i]);
         }
-
-        nx = Math.round(nx);
-        ny = Math.round(ny); 
-        ctx.lineTo(nx, ny);
         
-        ctx.lineTo(visable[1].x, visable[1].y);
+        drawPoints.push(new Point(nx, ny));
+        drawPoints.push(visable[1]);
 
+        returnPoints.push(drawPoints);
+    });
+    return returnPoints;
+}
+
+function drawShadows(ctx, points){
+    for(i = 0; i < points.length; i++){
+        array = points[i];
+        ctx.beginPath();
+        ctx.moveTo(array[0].x, array[0].y);
+        for(p = 1; p < array.length; p++){
+            point = array[p];
+            ctx.lineTo(point.x, point.y);
+        }
         ctx.closePath();
-        ctx.fill();   
-        });
-    console.log("Time: " + (new Date().getMilliseconds() - start));
+        ctx.fill();
+    }
 }
 
 function draw(){
 
     ctx.clearRect(0,0,canvas.width, canvas.height);
-    ctx.fillStyle = 'grey';
+    ctx.fillStyle = 'black';
     boxes.forEach(element => {
         element.draw(ctx);
     });
@@ -324,7 +335,7 @@ function draw(){
 
     ctx.fillStyle = 'black';
     player.draw(ctx);
-    findShadow(ctx);  
+    drawShadows(ctx, findShadow(ctx));  
 }
 
 function update(){
@@ -379,8 +390,10 @@ function update(){
 }
 
 function loop(){
+    start = new Date().getMilliseconds();
     update();
     draw();
+    console.log("Time: " + (new Date().getMilliseconds() - start));
     requestAnimationFrame(loop);
 }
 
